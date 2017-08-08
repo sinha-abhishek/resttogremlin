@@ -33,19 +33,19 @@ func NewClient(host string) *Client {
 	return client
 }
 
-func (client *Client) SendRequest(gr *GremlinRequest) (string, error) {
+func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
 	//log.Println(msg)
 	data, err := gr.PackageRequest()
 	id := gr.RequestID
 	if err != nil {
 		log.Println(err)
-		return "", err
+		return nil, err
 	}
 	client.requests <- data
 	client.responseListeners[id] = make(chan bool)
 	_ = <-client.responseListeners[id]
 	log.Println(client.allResults[id])
-	return client.allResults[id].(string), err
+	return client.allResults[id], err
 }
 
 func (client *Client) OnResponse(data []byte) {
