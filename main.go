@@ -16,7 +16,8 @@ func main() {
 		return
 	}
 	gr := client.NewGremlinRequest()
-	gr.SetQuery("v = g.V().has(\"number\", '006').next() ; g.V(v.id()).inE('contact').property('has_app', false)")
+	gr.ReadQueryFromFileAndAddBindings("scripts/get_app_friends.groovy", map[string]interface{}{"XUID": 1006})
+	//gr.SetQuery("v = g.V().has(\"number\", '006').next() ; g.V(v.id()).inE('contact').property('has_app', false)")
 	s, _ := client.SendRequest(gr)
 	fmt.Println(s)
 	// gr := client.NewGremlinRequest()
@@ -43,11 +44,11 @@ func main() {
 	// //s := client.SendRequest("{\"requestId\":\"655BD810-B41E-429D-B78F-3CC5F3B8E9BB\",\"processor\":\"\",\"op\":\"eval\",\"args\":{\"gremlin\":\"g.V().has('uid',1).values()\",\"language\":\"gremlin-groovy\"}}", "655BD810-B41E-429D-B78F-3CC5F3B8E9BA")
 	// fmt.Println(s2)
 
-	map1 := map[string]interface{}{"XNUM": "006", "XUID": 10060}
-	gr4 := client.NewGremlinRequest()
-	gr4.ReadQueryFromFileAndAddBindings("scripts/create_update_user_vertex.groovy", map1)
-	s4, _ := client.SendRequest(gr4)
-	fmt.Println(s4)
+	// map1 := map[string]interface{}{"XNUM": "006", "XUID": 10060}
+	// gr4 := client.NewGremlinRequest()
+	// gr4.ReadQueryFromFileAndAddBindings("scripts/create_update_user_vertex.groovy", map1)
+	// s4, _ := client.SendRequest(gr4)
+	// fmt.Println(s4)
 	// rmap := map[string]interface{}{"XNUM1": "004", "XNUM2": "006", "XNAME": "test6"}
 	// gr3 := client.NewGremlinRequest()
 	// gr3.ReadQueryFromFileAndAddBindings("scripts/add_contact", rmap)

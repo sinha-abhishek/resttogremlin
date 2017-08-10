@@ -2,6 +2,7 @@ package gremlin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,6 +18,7 @@ type Client struct {
 	requests          chan []byte
 	allResults        map[string]interface{}
 	responseListeners map[string]chan bool
+	errorListener     map[string]chan error
 	ErrChannel        chan error
 	lock              *sync.Mutex
 	IsConnected       bool
@@ -29,23 +31,57 @@ func NewClient(host string) *Client {
 	client.requests = make(chan []byte)
 	client.allResults = make(map[string]interface{})
 	client.responseListeners = make(map[string]chan bool)
+	client.errorListener = make(map[string]chan error)
+	client.ErrChannel = make(chan error)
 	client.lock = &sync.Mutex{}
 	return client
 }
 
 func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
-	//log.Println(msg)
+
 	data, err := gr.PackageRequest()
 	id := gr.RequestID
+	defer client.unregisterErrorListener(id)
+	client.registerErrorListener(id)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	client.requests <- data
 	client.responseListeners[id] = make(chan bool)
-	_ = <-client.responseListeners[id]
-	log.Println(client.allResults[id])
-	return client.allResults[id], err
+	var response interface{}
+	for {
+		select {
+		case resp := <-client.responseListeners[id]:
+			if resp {
+				log.Println(client.allResults[id])
+				response = client.allResults[id]
+			} else {
+				err = errors.New("FAILED")
+			}
+			return response, err
+		case err1 := <-client.errorListener[gr.RequestID]:
+			err = err1
+			log.Println(err)
+			return response, err
+		}
+	}
+
+}
+
+func (client *Client) broadCastError(err error) {
+	log.Println("broadcast error")
+	for _, v := range client.errorListener {
+		v <- err
+	}
+}
+
+func (client *Client) registerErrorListener(id string) {
+	client.errorListener[id] = make(chan error)
+}
+
+func (client *Client) unregisterErrorListener(id string) {
+	delete(client.errorListener, id)
 }
 
 func (client *Client) OnResponse(data []byte) {
@@ -85,6 +121,10 @@ func (client *Client) NewGremlinRequest() *GremlinRequest {
 }
 
 func (client *Client) writeHelper() {
+	defer func() {
+		client.conn.Close()
+		client.IsConnected = false
+	}()
 	for {
 		select {
 		case msg := <-client.requests:
@@ -102,6 +142,14 @@ func (client *Client) writeHelper() {
 				log.Println(err2)
 				break
 			}
+		case err := <-client.ErrChannel:
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+				log.Println("closed")
+				client.IsConnected = false
+			}
+			client.broadCastError(err)
+			log.Println(err)
+			break
 		}
 	}
 }

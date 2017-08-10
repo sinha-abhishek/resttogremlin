@@ -1,6 +1,7 @@
 package gremlin
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -34,12 +35,20 @@ func (gr *GremlinRequest) AddBindings(keyVal map[string]interface{}) {
 }
 
 func (gr *GremlinRequest) ReadQueryFromFileAndAddBindings(filename string, keyVal map[string]interface{}) error {
+	var buffer bytes.Buffer
+	gloabalVars, err1 := ioutil.ReadFile("scripts/globals.groovy")
+	if err1 != nil {
+		log.Println(err1)
+		return err1
+	}
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	gr.Args.Gremlin = string(data)
+	buffer.WriteString(string(gloabalVars))
+	buffer.WriteString(string(data))
+	gr.Args.Gremlin = buffer.String()
 	gr.AddBindings(keyVal)
 	return err
 }
