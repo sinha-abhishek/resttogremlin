@@ -38,17 +38,35 @@ func NewClient(host string) *Client {
 }
 
 func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
-
+	if !client.IsConnected {
+		connErr := client.Connect()
+		if connErr != nil {
+			log.Println(connErr)
+			return nil, errors.New("Cannot connect to graph")
+		}
+	}
 	data, err := gr.PackageRequest()
 	id := gr.RequestID
-	defer client.unregisterErrorListener(id)
+	defer func() {
+		client.unregisterErrorListener(id)
+		if _, ok := client.allResults[id]; ok {
+			delete(client.allResults, id)
+		}
+		if _, ok := client.responseListeners[id]; ok {
+			close(client.responseListeners[id])
+			delete(client.responseListeners, id)
+		}
+	}()
+	log.Println(data)
 	client.registerErrorListener(id)
+	log.Println(data)
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, errors.New("request packaging failed")
 	}
-	client.requests <- data
 	client.responseListeners[id] = make(chan bool)
+	client.requests <- data
+
 	var response interface{}
 	for {
 		select {
@@ -57,8 +75,9 @@ func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
 				log.Println(client.allResults[id])
 				response = client.allResults[id]
 			} else {
-				err = errors.New("FAILED")
+				err = errors.New("Got status code " + client.allResults[id].(string))
 			}
+
 			return response, err
 		case err1 := <-client.errorListener[gr.RequestID]:
 			err = err1
@@ -81,7 +100,10 @@ func (client *Client) registerErrorListener(id string) {
 }
 
 func (client *Client) unregisterErrorListener(id string) {
-	delete(client.errorListener, id)
+	if _, ok := client.errorListener[id]; ok {
+		close(client.errorListener[id])
+		delete(client.errorListener, id)
+	}
 }
 
 func (client *Client) OnResponse(data []byte) {
@@ -99,9 +121,14 @@ func (client *Client) OnResponse(data []byte) {
 	}
 	status := resp.getStatusCode()
 	if status == 200 || status == 304 || status == 204 || status == 206 {
+		client.lock.Lock()
 		client.allResults[id] = resp.GetResultData()
+		client.lock.Unlock()
 		client.responseListeners[id] <- true
 	} else {
+		client.lock.Lock()
+		client.allResults[id] = resp.getStatusCode()
+		client.lock.Unlock()
 		client.responseListeners[id] <- false
 	}
 

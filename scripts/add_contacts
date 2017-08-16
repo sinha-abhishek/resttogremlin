@@ -1,0 +1,30 @@
+jsonSlurper = new JsonSlurper();
+def list = jsonSlurper.parseText(JSON_CONTACTS_LIST);
+
+i = list.contacts.iterator();
+while (i.hasNext()) {
+  it = i.next();
+  v = g.V().has('number', XNUM1).next();
+  v2 = g.V().has('number', it.number).hasNext();
+  v1 =null;
+  hasApp = false;
+  if (v2 == false) {
+    hasApp = false;
+    println('create vertex '+ it.number );
+     v1 = graph.addVertex('user');
+     v1.property('number',it.number);
+     v1.property('uid',-1);
+  } else {
+     hasApp = g.V().has('number', it.number).values('uid') != -1 ;
+     v1 = g.V().has('number', it.number).next();
+  }
+
+  e = null;
+  if (g.V().has('number',XNUM1).outE('contact').inV().has('number', it.number).hasNext()) {
+    e = g.V().has('number',XNUM1).outE('contact').inV().has('number',it.number).toE(Direction.IN).next();
+  } else {
+    e = v.addEdge('contact', v1);
+  }
+  e.property('knw_as', it.name);
+  e.property('has_app', hasApp);
+}

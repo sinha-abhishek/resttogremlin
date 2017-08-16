@@ -1,22 +1,22 @@
-v = g.V().has('number', XNUM1).next()
-v2 = g.V().has('number', XNUM2).hasNext()
-v1 =null
-hasApp = false
+v = g.V().has('number', XNUM1).next();
+v2 = g.V().has('number', XNUM2).hasNext();
+v1 =null;
+hasApp = false;
 if (v2 == false) {
-  hasApp = false
-  println('create vertex '+ XNUM2 )
-   v1 = graph.addVertex("user")
-   v1.property('number',XNUM2)
-   v1.property("uid",-1)
+  hasApp = false;
+  println('create vertex '+ XNUM2 );
+   v1 = graph.addVertex('user');
+   v1.property('number',XNUM2);
+   v1.property('uid',-1);
 } else {
    hasApp = g.V().has('number', XNUM2).values('uid') != -1 ;
-   v1 = g.V().has('number', XNUM2).next()
+   v1 = g.V().has('number', XNUM2).next();
 }
-e = null
+e = null;
 if (g.V().has('number',XNUM1).outE('contact').inV().has('number', XNUM2).hasNext()) {
   e = g.V().has('number',XNUM1).outE('contact').inV().has('number',XNUM2).toE(Direction.IN).next();
 } else {
-  e = v.addEdge('contact', v1)
+  e = v.addEdge('contact', v1);
 }
-e.property('knw_as', XNAME)
-e.property('has_app', hasApp)
+e.property('knw_as', XNAME);
+e.property('has_app', hasApp);

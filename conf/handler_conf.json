@@ -1,0 +1,42 @@
+{
+	"handlers" : {
+	"init" : {
+		"query" : "USER_LABEL = \"user\";\r\nNUMBER_PROPERTY = \"number\";\r\nUID_PROPERTY = \"uid\";\r\nCONTACT_EDGE_LABEL = \"contact\";\r\nKNOWS_AS_EDGE_PROPERTY = \"knw_as\";\r\nHAS_APP_PROPERTY = \"has_app\";\r\nNUMBER_INDEX = \"number_index\";\r\nUID_INDEX = \"uid_index\";\r\n\r\nchanged = false;\r\nmgmt = graph.openManagement();\r\nuserLabelCreated = mgmt.getVertexLabel(USER_LABEL) != null;\r\nedgeLabelCreated = mgmt.getEdgeLabel(CONTACT_EDGE_LABEL) != null;\r\nnumberIndexCreated = mgmt.getGraphIndex(NUMBER_INDEX) != null;\r\nuidIndexCreated = mgmt.getGraphIndex(UID_INDEX) != null;\r\nmgmt.commit();\r\nif (!userLabelCreated) {\r\n    graph.tx().rollback();\r\n    mgmt = graph.openManagement();\r\n    mgmt.makeVertexLabel(USER_LABEL).make();\r\n    mgmt.commit();\r\n}\r\n\r\nif (!edgeLabelCreated) {\r\n    graph.tx().rollback();\r\n    mgmt = graph.openManagement();\r\n    mgmt.makePropertyKey(KNOWS_AS_EDGE_PROPERTY).dataType(String.class).make();\r\n    mgmt.makePropertyKey(HAS_APP_PROPERTY).dataType(Boolean.class).make();\r\n    mgmt.makeEdgeLabel(CONTACT_EDGE_LABEL).make();\r\n    mgmt.commit();\r\n    changed = true;\r\n\r\n}\r\n\r\n\r\nif (!numberIndexCreated) {\r\n    graph.tx().rollback();\r\n    mgmt = graph.openManagement();\r\n    PropertyKey numberPropertyKey = mgmt.makePropertyKey(NUMBER_PROPERTY).dataType(String.class).make();\r\n    mgmt.buildIndex(NUMBER_INDEX, Vertex.class).addKey(numberPropertyKey).buildCompositeIndex();\r\n    changed = true;\r\n    println 'NUMBER_INDEX done';\r\n    mgmt.commit();\r\n}\r\n\r\nif (!uidIndexCreated) {\r\n    graph.tx().rollback();\r\n    mgmt = graph.openManagement();\r\n    PropertyKey uidProperty = mgmt.makePropertyKey(UID_PROPERTY).dataType(Integer.class).make();\r\n    mgmt.buildIndex(UID_INDEX, Vertex.class).addKey(uidProperty).buildCompositeIndex();\r\n    changed = true;\r\n    println 'UID_INDEX done';\r\n    mgmt.commit();\r\n}\r\n\r\nprintln 'done'\r\n\r\nmgmt.awaitGraphIndexStatus(graph, NUMBER_INDEX).status(SchemaStatus.ENABLED).call();\r\nmgmt.awaitGraphIndexStatus(graph, UID_INDEX).status(SchemaStatus.ENABLED).call();\r\nif (changed) {\r\n    mgmt = graph.openManagement();\r\n    mgmt.updateIndex(mgmt.getGraphIndex(NUMBER_INDEX), SchemaAction.REINDEX).get();\r\n    mgmt.updateIndex(mgmt.getGraphIndex(UID_INDEX), SchemaAction.REINDEX).get();\r\n    mgmt.commit();\r\n    graph.tx().commit();\r\n}\r\n",
+		"bindings" : {}
+	},
+	"add_user" : {
+		"query" : "v1=g.V().has('number', XNUM);if (v1.toList().size() == 0) {println('create vertex '+ XNUM );v = graph.addVertex('user');v.property('number',XNUM);v.property('uid',XUID);}else {println('found v');v = g.V().has('number', XNUM).next();v.property('uid',XUID);g.V(v).inE('contact').property('has_app', true) }",
+		"bindings" : {
+			"XNUM" : "number",
+			"XUID" : "uid"
+		}
+	},
+	"get_app_friends" : {
+		"query" : "g.V().has('uid',XUID).outE('contact').has('has_app',true).as('ce').inV().as('inv').select('ce','inv').select('ce').valueMap().as('e').select('inv').valueMap().as('v').select('e','v')",
+		"bindings" : {
+			"XUID" : "uid"
+		}
+	},
+	"get_contacts" : {
+		"query" : "g.V().has('uid',XUID).outE('contact').as('ce').inV().as('inv').select('ce','inv').select('ce').valueMap().as('e').select('inv').valueMap().as('v').select('e','v')",
+		"bindings" : {
+			"XUID" : "uid"
+		}
+	},
+	"add_contact" : {
+		"query" : "v = g.V().has('number', XNUM1).next();\r\nv2 = g.V().has('number', XNUM2).hasNext();\r\nv1 =null;\r\nhasApp = false;\r\nif (v2 == false) {\r\n  hasApp = false;\r\n  println('create vertex '+ XNUM2 );\r\n   v1 = graph.addVertex('user');\r\n   v1.property('number',XNUM2);\r\n   v1.property('uid',-1);\r\n} else {\r\n   hasApp = g.V().has('number', XNUM2).values('uid') != -1 ;\r\n   v1 = g.V().has('number', XNUM2).next();\r\n}\r\ne = null;\r\nif (g.V().has('number',XNUM1).outE('contact').inV().has('number', XNUM2).hasNext()) {\r\n  e = g.V().has('number',XNUM1).outE('contact').inV().has('number',XNUM2).toE(Direction.IN).next();\r\n} else {\r\n  e = v.addEdge('contact', v1);\r\n}\r\ne.property('knw_as', XNAME);\r\ne.property('has_app', hasApp);\r\n",
+		"bindings" : {
+			"XNUM1" : "number1",
+			"XNUM2" : "number2",
+			"XNAME" : "contact_name"
+		}
+	},
+	"add_contacts" : {
+		"query" : "jsonSlurper = new JsonSlurper();\r\ndef list = jsonSlurper.parseText(JSON_CONTACTS_LIST);\r\n\r\ni = list.contacts.iterator();\r\nwhile (i.hasNext()) {\r\n  it = i.next();\r\n  v = g.V().has('number', XNUM1).next();\r\n  v2 = g.V().has('number', it.number).hasNext();\r\n  v1 =null;\r\n  hasApp = false;\r\n  if (v2 == false) {\r\n    hasApp = false;\r\n    println('create vertex '+ it.number );\r\n     v1 = graph.addVertex('user');\r\n     v1.property('number',it.number);\r\n     v1.property('uid',-1);\r\n  } else {\r\n     hasApp = g.V().has('number', it.number).values('uid') != -1 ;\r\n     v1 = g.V().has('number', it.number).next();\r\n  }\r\n\r\n  e = null;\r\n  if (g.V().has('number',XNUM1).outE('contact').inV().has('number', it.number).hasNext()) {\r\n    e = g.V().has('number',XNUM1).outE('contact').inV().has('number',it.number).toE(Direction.IN).next();\r\n  } else {\r\n    e = v.addEdge('contact', v1);\r\n  }\r\n  e.property('knw_as', it.name);\r\n  e.property('has_app', hasApp);\r\n}\r\n",
+		"bindings" : {
+			"XNUM1" : "number",
+			"JSON_CONTACTS_LIST" : "json_contacts"
+		}
+	}
+	}
+}

@@ -3,6 +3,7 @@ package gremlin
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 )
@@ -57,6 +58,7 @@ func (gr *GremlinRequest) PackageRequest() (data []byte, err error) {
 	var j []byte
 	j, err = json.Marshal(gr)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 

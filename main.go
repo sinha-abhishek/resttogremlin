@@ -1,67 +1,114 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 
 	"bitbucket.org/abh_sinha/gremlin_client/gremlin"
+	"bitbucket.org/abh_sinha/gremlin_client/handlers"
 )
 
-func main() {
-	client := gremlin.NewClient("localhost:8182")
-	err := client.Connect()
+var handlerMap map[string]handlers.HandlerConf
+var client *gremlin.Client
+
+func Init() {
+	var err error
+	handlerMap, err = handlers.GetHandlerConfigs()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	client = gremlin.NewClient("localhost:8182")
+	err = client.Connect()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func test() {
+	handler := handlerMap["init"]
+	bMap := make(map[string]interface{})
+	bMap["uid"] = 1006
+	bMap["number2"] = "10030"
+	bMap["contact_name"] = "testnam2"
+	query := handler.Query
+	bindingMap := handler.Bindings
+	bindings := make(map[string]interface{})
+	for k, v := range bindingMap {
+		bindings[k] = bMap[v]
+	}
+
 	gr := client.NewGremlinRequest()
-	gr.ReadQueryFromFileAndAddBindings("scripts/get_app_friends.groovy", map[string]interface{}{"XUID": 1006})
-	//gr.SetQuery("v = g.V().has(\"number\", '006').next() ; g.V(v.id()).inE('contact').property('has_app', false)")
+	gr.SetQuery(query)
+	gr.AddBindings(bindings)
 	s, _ := client.SendRequest(gr)
 	fmt.Println(s)
-	// gr := client.NewGremlinRequest()
-	// gr.SetQuery("g.V().has('uid',x)")
-	// gr.AddBinding("x", 1004)
-	// data, err2 := gr.PackageRequest()
-	// fmt.Println(string(data))
-	// if err2 != nil {
-	// 	fmt.Println(err2)
-	// 	return
-	// }
-	// s, _ := client.SendRequest(gr)
-	// fmt.Println(s)
-	// gr2 := client.NewGremlinRequest()
-	// gr2.ReadQueryFromFileAndAddBindings("scripts/init.groovy", nil)
-	// data2, err3 := gr2.PackageRequest()
-	// fmt.Println(string(data2))
-	// if err3 != nil {
-	// 	fmt.Println(err3)
-	// 	return
-	// }
-	// s2, _ := client.SendRequest(gr2)
-	//
-	// //s := client.SendRequest("{\"requestId\":\"655BD810-B41E-429D-B78F-3CC5F3B8E9BB\",\"processor\":\"\",\"op\":\"eval\",\"args\":{\"gremlin\":\"g.V().has('uid',1).values()\",\"language\":\"gremlin-groovy\"}}", "655BD810-B41E-429D-B78F-3CC5F3B8E9BA")
-	// fmt.Println(s2)
+}
 
-	// map1 := map[string]interface{}{"XNUM": "006", "XUID": 10060}
-	// gr4 := client.NewGremlinRequest()
-	// gr4.ReadQueryFromFileAndAddBindings("scripts/create_update_user_vertex.groovy", map1)
-	// s4, _ := client.SendRequest(gr4)
-	// fmt.Println(s4)
-	// rmap := map[string]interface{}{"XNUM1": "004", "XNUM2": "006", "XNAME": "test6"}
-	// gr3 := client.NewGremlinRequest()
-	// gr3.ReadQueryFromFileAndAddBindings("scripts/add_contact", rmap)
-	// s3, _ := client.SendRequest(gr3)
-	// fmt.Println(s3)
-	// rmap["XNUM2"] = "007"
-	// rmap["XNAME"] = "test7"
-	// gr3.ReadQueryFromFileAndAddBindings("scripts/add_contact", rmap)
-	// s4, _ := client.SendRequest(gr3)
-	// fmt.Println(s4)
-	// router := mux.NewRouter().StrictSlash(true)
-	// router.HandleFunc("/", Index)
-	// log.Fatal(http.ListenAndServe(":8080", router))
+func handleGremlinRequest(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	// for key, values := range r.PostForm {
+	// 	// [...]
+	// 	// fmt.Println(key)
+	// 	// fmt.Println(values)
+	// }
+
+	method := r.PostFormValue("method")
+
+	fmt.Println(method)
+	if handler, ok := handlerMap[method]; ok {
+		query := handler.Query
+		bindingMap := handler.Bindings
+		bindings := make(map[string]interface{})
+		requestMap := make(map[string]interface{})
+		for k := range r.PostForm {
+			requestMap[k] = r.PostFormValue(k)
+		}
+		for k, v := range bindingMap {
+			if rVal, ok := requestMap[v]; ok {
+				bindings[k] = rVal
+			} else {
+				http.Error(w, "values not sent : "+v, 400)
+				return
+			}
+		}
+		gr := client.NewGremlinRequest()
+		gr.SetQuery(query)
+		gr.AddBindings(bindings)
+		s, err2 := client.SendRequest(gr)
+		if err2 != nil {
+			http.Error(w, err2.Error(), 400)
+			return
+		}
+		fmt.Println(s)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(s); err != nil {
+			http.Error(w, "server error", 500)
+			panic(err)
+		}
+	} else {
+		http.Error(w, "method not found", 400)
+		return
+	}
+
+}
+
+func StartServer(port string) {
+	http.HandleFunc("/gremlin", handleGremlinRequest)
+	err := http.ListenAndServe(":8000", nil)
+	if err != nil {
+		log.Println(err)
+		panic(1)
+	}
+}
+
+func main() {
+	Init()
+	StartServer("8080")
 }
 
 /*

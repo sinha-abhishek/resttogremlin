@@ -1,3 +1,12 @@
+USER_LABEL = "user";
+NUMBER_PROPERTY = "number";
+UID_PROPERTY = "uid";
+CONTACT_EDGE_LABEL = "contact";
+KNOWS_AS_EDGE_PROPERTY = "knw_as";
+HAS_APP_PROPERTY = "has_app";
+NUMBER_INDEX = "number_index";
+UID_INDEX = "uid_index";
+
 changed = false;
 mgmt = graph.openManagement();
 userLabelCreated = mgmt.getVertexLabel(USER_LABEL) != null;
@@ -30,7 +39,7 @@ if (!numberIndexCreated) {
     PropertyKey numberPropertyKey = mgmt.makePropertyKey(NUMBER_PROPERTY).dataType(String.class).make();
     mgmt.buildIndex(NUMBER_INDEX, Vertex.class).addKey(numberPropertyKey).buildCompositeIndex();
     changed = true;
-    println "NUMBER_INDEX done";
+    println 'NUMBER_INDEX done';
     mgmt.commit();
 }
 
@@ -40,11 +49,11 @@ if (!uidIndexCreated) {
     PropertyKey uidProperty = mgmt.makePropertyKey(UID_PROPERTY).dataType(Integer.class).make();
     mgmt.buildIndex(UID_INDEX, Vertex.class).addKey(uidProperty).buildCompositeIndex();
     changed = true;
-    println "UID_INDEX done";
+    println 'UID_INDEX done';
     mgmt.commit();
 }
 
-println "done"
+println 'done'
 
 mgmt.awaitGraphIndexStatus(graph, NUMBER_INDEX).status(SchemaStatus.ENABLED).call();
 mgmt.awaitGraphIndexStatus(graph, UID_INDEX).status(SchemaStatus.ENABLED).call();
