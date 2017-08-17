@@ -37,6 +37,15 @@
 			"XNUM1" : "number",
 			"JSON_CONTACTS_LIST" : "json_contacts"
 		}
+	},
+	"update_score" : {
+		"query" : "this_week_ts = Long.parseLong(XTS);\r\nscore_to_add=XSCORE.toInteger();\r\nsubject_to_add=XSUB;\r\nuid = XUID;\r\nscore = 0;\r\nprintln \"score = \"+score_to_add\r\ncur_key = \"key_\"+this_week_ts+\"_\"+subject_to_add;\r\ndel_key = \"key_\" + (this_week_ts - 86400*1000*21)+\"_\"+subject_to_add;\r\nprintln \"cur=\"+cur_key+\" del=\"+del_key\r\nprintln \"g.V().has('uid',$uid).property($cur_key, union(values($cur_key), constant($score_to_add)).sum()).properties($del_key).drop()\"\r\ng.V().has('uid',uid).property(cur_key, union(values(cur_key), constant(score_to_add)).sum()).properties(del_key).drop();",
+		"bindings" : {
+			"XTS" : "SERVER_week_end_time",
+			"XSCORE" : "score_to_add",
+			"XSUB" : "subject_id",
+			"XUID" : "uid"
+		}
 	}
 	}
 }
