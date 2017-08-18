@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 )
 
@@ -16,9 +17,11 @@ func GetConfigurations() (*Configurations, error) {
 	var err error
 	var file *os.File
 	if config == nil {
+		config = new(Configurations)
 		file, err = os.Open("conf/server_conf.json")
 		if err == nil {
 			decoder := json.NewDecoder(file)
+			log.Println(decoder)
 			err = decoder.Decode(config)
 		}
 	}

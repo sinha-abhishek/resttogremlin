@@ -1,51 +1,50 @@
 package gremlin
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
-	"net/http"
 	"sync"
 
-	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 type Client struct {
-	host              string
-	conn              *websocket.Conn
-	requests          chan []byte
-	allResults        map[string]interface{}
-	responseListeners map[string]chan bool
-	errorListener     map[string]chan error
-	ErrChannel        chan error
-	lock              *sync.Mutex
-	IsConnected       bool
+	hosts                []string
+	connections          []*Connection
+	requests             chan GremlinRequest
+	responseChannel      chan GremlinResponse
+	poolErrorListener    chan *Connection
+	requestErrorListener chan string
+	allResults           map[string]interface{}
+	responseListeners    map[string]chan bool
+	errorListener        map[string]chan error
+	lock                 *sync.Mutex
 }
 
-func NewClient(host string) *Client {
+func NewClient(hosts []string) *Client {
 	client := new(Client)
-	client.host = "ws://" + host
-	client.IsConnected = false
-	client.requests = make(chan []byte)
+	client.hosts = hosts
+	client.requests = make(chan GremlinRequest)
+	client.responseChannel = make(chan GremlinResponse)
+	client.poolErrorListener = make(chan *Connection)
+	client.requestErrorListener = make(chan string)
 	client.allResults = make(map[string]interface{})
 	client.responseListeners = make(map[string]chan bool)
 	client.errorListener = make(map[string]chan error)
-	client.ErrChannel = make(chan error)
 	client.lock = &sync.Mutex{}
+	client.connections = make([]*Connection, len(hosts))
+	for _, host := range hosts {
+		connection := NewConnection(host, client.requests, client.responseChannel,
+			client.poolErrorListener, client.requestErrorListener)
+		connection.Connect()
+		client.connections = append(client.connections, connection)
+	}
+	go client.messageReciever()
 	return client
 }
 
 func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
-	if !client.IsConnected {
-		connErr := client.Connect()
-		if connErr != nil {
-			log.Println(connErr)
-			return nil, errors.New("Cannot connect to graph")
-		}
-	}
-	data, err := gr.PackageRequest()
+
 	id := gr.RequestID
 	defer func() {
 		client.unregisterErrorListener(id)
@@ -57,17 +56,11 @@ func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
 			delete(client.responseListeners, id)
 		}
 	}()
-	log.Println(data)
 	client.registerErrorListener(id)
-	log.Println(data)
-	if err != nil {
-		log.Println(err)
-		return nil, errors.New("request packaging failed")
-	}
 	client.responseListeners[id] = make(chan bool)
-	client.requests <- data
-
+	client.requests <- *gr
 	var response interface{}
+	var err error
 	for {
 		select {
 		case resp := <-client.responseListeners[id]:
@@ -85,12 +78,39 @@ func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
 			return response, err
 		}
 	}
+}
+
+func (client *Client) messageReciever() {
+	for {
+		select {
+		case requestId := <-client.requestErrorListener:
+			client.sendErrorToRequest(requestId, errors.New("Failed to send request"))
+		case resp := <-client.responseChannel:
+			id := resp.getRequestId()
+			if client.responseListeners[id] == nil {
+				client.responseListeners[id] = make(chan bool)
+			}
+			status := resp.getStatusCode()
+			if status == 200 || status == 304 || status == 204 || status == 206 {
+				client.lock.Lock()
+				client.allResults[id] = resp.GetResultData()
+				client.lock.Unlock()
+				client.responseListeners[id] <- true
+			} else {
+				client.lock.Lock()
+				client.allResults[id] = resp.getStatusCode()
+				client.lock.Unlock()
+				client.responseListeners[id] <- false
+			}
+		case channelErr := <-client.poolErrorListener:
+			log.Println(channelErr)
+		}
+	}
 
 }
 
-func (client *Client) broadCastError(err error) {
-	log.Println("broadcast error")
-	for _, v := range client.errorListener {
+func (client *Client) sendErrorToRequest(id string, err error) {
+	if v, ok := client.errorListener[id]; ok {
 		v <- err
 	}
 }
@@ -106,34 +126,6 @@ func (client *Client) unregisterErrorListener(id string) {
 	}
 }
 
-func (client *Client) OnResponse(data []byte) {
-	var resp *GremlinResponse
-	resp = new(GremlinResponse)
-	err := json.Unmarshal(data, resp)
-	if err != nil {
-		log.Println(err)
-		client.ErrChannel <- err
-		return
-	}
-	id := resp.getRequestId()
-	if client.responseListeners[id] == nil {
-		client.responseListeners[id] = make(chan bool)
-	}
-	status := resp.getStatusCode()
-	if status == 200 || status == 304 || status == 204 || status == 206 {
-		client.lock.Lock()
-		client.allResults[id] = resp.GetResultData()
-		client.lock.Unlock()
-		client.responseListeners[id] <- true
-	} else {
-		client.lock.Lock()
-		client.allResults[id] = resp.getStatusCode()
-		client.lock.Unlock()
-		client.responseListeners[id] <- false
-	}
-
-}
-
 func (client *Client) NewGremlinRequest() *GremlinRequest {
 	gremlinRequest := new(GremlinRequest)
 	gremlinRequest.RequestID = uuid.NewV4().String()
@@ -147,7 +139,7 @@ func (client *Client) NewGremlinRequest() *GremlinRequest {
 	return gremlinRequest
 }
 
-func (client *Client) writeHelper() {
+/*func (client *Client) writeHelper() {
 	defer func() {
 		client.conn.Close()
 		client.IsConnected = false
@@ -209,4 +201,4 @@ func (client *Client) Connect() (err error) {
 		go client.readHelper()
 	}
 	return err
-}
+}*/

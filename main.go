@@ -26,8 +26,8 @@ func Init() (err error) {
 		fmt.Println(err)
 		return
 	}
-	client = gremlin.NewClient("localhost:8182")
-	err = client.Connect()
+	client = gremlin.NewClient(configurations.GremlinHosts)
+	//err = client.Connect()
 	if err != nil {
 		fmt.Println(err)
 		return
