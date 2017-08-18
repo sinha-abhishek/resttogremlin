@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"log"
 	"net/http"
 
@@ -13,9 +12,15 @@ import (
 
 var handlerMap map[string]handlers.HandlerConf
 var client *gremlin.Client
+var configurations *Configurations
 
-func Init() {
-	var err error
+func Init() (err error) {
+
+	configurations, err = GetConfigurations()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	handlerMap, err = handlers.GetHandlerConfigs()
 	if err != nil {
 		fmt.Println(err)
@@ -27,6 +32,7 @@ func Init() {
 		fmt.Println(err)
 		return
 	}
+	return
 }
 
 func test() {
@@ -107,13 +113,9 @@ func StartServer(port string) {
 }
 
 func main() {
-	Init()
+	err := Init()
+	if err != nil {
+		return
+	}
 	StartServer("8080")
-}
-
-/*
-this is comment
-*/
-func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 }
