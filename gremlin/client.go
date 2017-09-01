@@ -3,6 +3,7 @@ package gremlin
 import (
 	"errors"
 	"log"
+	"strconv"
 	"sync"
 
 	uuid "github.com/satori/go.uuid"
@@ -68,7 +69,8 @@ func (client *Client) SendRequest(gr *GremlinRequest) (interface{}, error) {
 				log.Println(client.allResults[id])
 				response = client.allResults[id]
 			} else {
-				err = errors.New("Got status code " + client.allResults[id].(string))
+				errCodde := strconv.FormatFloat(client.allResults[id].(float64), 'g', -1, 64)
+				err = errors.New("Got status code " + errCodde)
 			}
 
 			return response, err

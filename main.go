@@ -105,7 +105,7 @@ func handleGremlinRequest(w http.ResponseWriter, r *http.Request) {
 
 func StartServer(port string) {
 	http.HandleFunc("/gremlin", handleGremlinRequest)
-	err := http.ListenAndServe(":8000", nil)
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Println(err)
 		panic(1)
@@ -117,5 +117,5 @@ func main() {
 	if err != nil {
 		return
 	}
-	StartServer("8080")
+	StartServer(configurations.ServerPort)
 }
