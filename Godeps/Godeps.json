@@ -1,5 +1,5 @@
 {
-	"ImportPath": "bitbucket.org/abh_sinha/gremlin_client",
+	"ImportPath": "github.com/sinha-abhishek/resttogremlin",
 	"GoVersion": "go1.5",
 	"GodepVersion": "v75",
 	"Deps": [

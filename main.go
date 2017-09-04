@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"bitbucket.org/abh_sinha/gremlin_client/gremlin"
-	"bitbucket.org/abh_sinha/gremlin_client/handlers"
+	"github.com/sinha-abhishek/resttogremlin/gremlin"
+	"github.com/sinha-abhishek/resttogremlin/handlers"
 )
 
 var handlerMap map[string]handlers.HandlerConf
