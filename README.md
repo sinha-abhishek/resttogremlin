@@ -4,7 +4,7 @@ There is handler_config which helps you to define handlers and the post form par
 
 ## Installing the server (TBD: more explanation)
 
-go get https://github.com/sinha-abhishek/resttogremlin
+go get github.com/sinha-abhishek/resttogremlin
 
 ## Defining api end points (TBD: admin console to define new APIs)
 * open handler_config.json
