@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/sinha-abhishek/resttogremlin/gremlin"
 	"github.com/sinha-abhishek/resttogremlin/handlers"
@@ -56,6 +57,7 @@ func test() {
 }
 
 func handleGremlinRequest(w http.ResponseWriter, r *http.Request) {
+	log.Println(strings.Split(r.URL.Path, "/")[2])
 	r.ParseForm()
 	// for key, values := range r.PostForm {
 	// 	// [...]
@@ -63,7 +65,7 @@ func handleGremlinRequest(w http.ResponseWriter, r *http.Request) {
 	// 	// fmt.Println(values)
 	// }
 
-	method := r.PostFormValue("method")
+	method := strings.Split(r.URL.Path, "/")[2]
 
 	fmt.Println(method)
 	if handler, ok := handlerMap[method]; ok {
@@ -104,7 +106,7 @@ func handleGremlinRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func StartServer(port string) {
-	http.HandleFunc("/gremlin", handleGremlinRequest)
+	http.HandleFunc("/gremlin/", handleGremlinRequest)
 	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Println(err)

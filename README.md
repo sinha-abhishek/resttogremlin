@@ -21,7 +21,7 @@ go get github.com/sinha-abhishek/resttogremlin
  * Save this file and start the server doing `go build` and running the executable. You can set the port number to run in server_conf.json.
  * This will now provide a api way to create a vertex with user id
  * To use this api you can send 
- `` curl -X POST -vid 'method=create_vertex&uid=1' -H 'Content-Type:application/x-www-form-urlencoded' http://<server:port>/gremlin ``
+ `` curl -X POST -vid 'uid=1' -H 'Content-Type:application/x-www-form-urlencoded' http://<server:port>/gremlin/create_vertex ``
  
  ## Using this as gremlin client library
  If you do not want to use it as a rest server but as a gremlin library for your go project. You can do the following
